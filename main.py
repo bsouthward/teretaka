@@ -71,42 +71,61 @@ def zipf_weights(length, q=0.7)->list:
     return [zipf.pmf(i, shape) for i in range(length)][1:]
 
 
-def make_syllable(phonology, distro='zipf')->str:
+def add_weights_to_phonology(phonology, distro='zipf'):
     """
-    Builds a syllable according to a distribution of syllable structures
-    taking each character in the string as a label.
+    This consumes a dictionary drawn from the Yaml specifying the
+    langauge's phonology, and outputs a dictionary with added weights.
     """
-    # Set which distribution we are using
+    phono = phonology
+
+    syls = phono['syllables']['vals'] # Syllable struture values
+    syl_q = phono['syllables']['q']
+    elements = phono['elements']
+
     if distro == 'poisson':
         weight_lifter = poisson_weights
     else:
         weight_lifter = zipf_weights
 
-    phono = phonology
-    syls = phono['syllables']['vals'] # Get list of syllable structures
-    syl_q = phono['syllables']['q'] # Get q value for choosing structure
-    syl_len = len(syls)
+    # Add weights to dictionary for the syllable structures
+    phono['syllables']['weights'] = weight_lifter(len(syls), syl_q)
 
-    s_weights = weight_lifter(syl_len, syl_q)
+    # Grab total set of unique characters in the syllable structures
+    unique = ''.join(syls)
+    unique = ''.join(k for k, g in groupby(sorted(unique)))
 
-    syl_struct = choice(syls, 1, s_weights)[0] # Our chosen syllable structure
-
-    elements = phono['elements'] # Elements: C, V, etc.
-
-    # Create dictionary of weights indexed by unique members of elements
-    weights = {}
-    # Here we extract every unique element of the syllable structure string
-    unique = ''.join(k for k, g in groupby(sorted(syl_struct)))
-    # Go through those unique elements to create a weights dictionary
+    # Add weights for each unique element appearing in the syl structs
     for u in unique:
-        l = len(elements[u]['vals'])
-        q = elements[u]['q']
-        weights[u] = weight_lifter(l, q)
+        el_len = len(elements[u]['vals'])
+        el_q = elements[u]['q']
+        weights = weight_lifter(el_len, el_q)
+        elements[u]['weights'] = weights
+
+    phono['elements'] = elements
+    return phono
+
+def make_syllable(phonology)->str:
+    """
+    Builds a syllable according to a distribution of syllable structures
+    taking each character in the string as a label.
+    """
+    # Get list of syllable structures and weights from the above
+    syls = phonology['syllables']['vals'] 
+    syl_weights = phonology['syllables']['weights']
+
+    # Choose a syllable structure
+    syl_struct = choice(syls, 1, syl_weights)[0]
+
+    # Elements: C, V, etc.
+    elements = phonology['elements'] 
 
     # Choose an element from each list of element vals according to the weights
     syl_out = ''
     for s in syl_struct:
-        syl_out += list(choice(elements[s]['vals'], 1, weights[s]))[0]
+        vs = elements[s]['vals']
+        ws = elements[s]['weights']
+        phone = choice(vs, 1, ws)[0]
+        syl_out += phone
     return syl_out
 
 
@@ -114,9 +133,13 @@ def make_word(phonology, num_syllables, distro='zipf')->str:
     """
     Use the syllable-building function above to construct words
     """
+    # Start by adding the weights to the phonology we've received
+    phono = add_weights_to_phonology(phonology, distro)
+
+    # Construct the word
     word = ''
     for i in range(num_syllables):
-        word += make_syllable(phonology, distro)
+        word += make_syllable(phono)
     return word
 
 
@@ -129,7 +152,7 @@ def run(words='1', syllables='1', distribution='zipf', file='')->str:
         phonology = yaml.load(open(file, 'r'))
     else:
         phonology = yaml.load(open('hrau.yml', 'r'))
-        
+
     # Create the words!
     for w in range(int(words)):
         word = make_word(phonology, int(syllables), distribution)
@@ -137,5 +160,6 @@ def run(words='1', syllables='1', distribution='zipf', file='')->str:
         if w < int(words) - 1:
             output += '\n'
     outstring = phonology['language'] + ' language: ' + words + ' words'
+    outstring += ' of ' + syllables + ' syllable(s) each.'
     print(outstring)
     print(output)
