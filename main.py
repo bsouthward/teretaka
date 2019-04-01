@@ -38,70 +38,6 @@ from itertools import groupby
 import yaml
 
 
-# Prase command line arguments
-import argparse
-
-args_parser = argparse.ArgumentParser(description='Generate random words.')
-
-args_parser.add_argument('w', type=int, nargs='?', default=1,
-    help='number of words to generate')
-
-args_parser.add_argument('s', type=int, nargs='?', default=1,
-    help='number of syllables per word')
-
-args_parser.add_argument('file', type=float, nargs='?', default='', 
-    help='filename to read, defaults to empty string')
-
-args = args_parser.parse_args()
-
-
-
-# Get command line arguments for number of words and syllables per word
-w, s = args.w, args.s
-
-# Create the phonology. Grab the file argument if possible
-phonology = {}
-
-if len(args.file) > 0:
-    phonology = yaml.load(open(args.file, 'r'))
-else:
-    phonology = { 'language': 'Hrau',
-
-                'syllables': {
-                    'vals':   ['CV', 'CD', 'IAV', 'CVF', 'D', 'V', 'CDF', 
-                                'IAD', 'CVOF', 'IADF', 'CDOF', 'IAVF', 'IAVO', 
-                                'IADO', 'IAVOF', 'IAODOF'],
-                    'mu': 0.3},
-
-                'elements': {
-                    'C': {  'vals': 
-                            ['k', 't', 'r', 'n', 's', 'h', 'l', 'f', 'm',
-                             'y', 'j', 'p', 'w'],
-                            'mu': 0.3},
-
-                    'V': {  'vals': ['i', 'u', 'o', 'e', 'a'],
-                            'mu': 0.3},
-
-                    'D': {  'vals': ['ei', 'oi', 'ai', 'uo', 'ou', 'au'],
-                            'mu': 0.5},
-
-                    'I': {  'vals': ['k', 't', 's', 'n', 'h', 'f', 'p', 
-                                    'm', 'j'],
-                            'mu': 0.5},
-
-                    'A': {  'vals': ['y', 'r', 'w'],
-                            'mu': 0.3},
-
-                    'F': {  'vals': ['n', 's', 'r', 'm'],
-                            'mu': 0.5},
-
-                    'O': {  'vals': ['i', 'h', 'u'],
-                            'mu': 0.2}
-                }
-            }
-
-
-
 """
 NEW FUNCTION DEFINITIONS
 """
@@ -130,7 +66,7 @@ def choose_poisson(strings, mu=0.3)->str:
     return choice(strings, 1, weights)[0]
 
 
-def make_syllable(phonology, mu=0.3)->str:
+def make_syllable(phonology)->str:
     """
     Builds a syllable according to a distribution of syllable structures
     taking each character in the string as a label.
@@ -158,81 +94,64 @@ def make_syllable(phonology, mu=0.3)->str:
     syl_out = ''
     for s in syl_struct:
         syl_out += choice(elements[s], 1, weights[s])
-
     return syl_out
 
 
-"""
-OLD FUNCTION DEFINITIONS
-"""
-
-def old_choose_phoneme(phonemes, mu=0.3)->str:
+def make_word(phonology, num_syllables)->str:
     """
-    Choose random phonemes using a Poisson distribution as weights.
-    Note that this is also used to choose syllable structures.
-
-    We are using the probability mass function of the Poisson 
-    distribution to generate an array of floats that is equal in 
-    length to the array of strings we receive as input. THese then 
-    work as the weights that we use to randomly choose a phoneme
-    from the list of strings consumed as the first input variable.
-
-    [strings], float -> string
+    Use the syllable-building function above to construct words
     """
-    rv = poisson(mu)
-    weights = [rv.pmf(i) for i in range(len(phonemes))]
-    return choice(phonemes, 1, weights)[0]
-
-
-def old_make_syllable(elements, mu=0.3)->str:
-    """
-    Parse syllable structures and replace with random phonemes.
-    This goes through a list of syllable structures derived from 
-    the dictionary's S value and then replaces each character in 
-    the string with an element from the list of phonemes that
-    corresponds to the character in the syllable structure.
-
-    dictionary, float -> string
-    """
-    structure = list(choose_phoneme(elements['S']))
-
-    # Pull list of mu values
-
-    output = ""
-    for st in structure:
-        output += choose_phoneme(elements[st], mu)
-    return output
-
-
-def make_word(elements, num_syllables, mu=0.3)->str:
-    """
-    This is a short function that uses a list comprehension
-    to assemble a word built from syllables created 
-    with make_syllable() above.
-
-    dictionary, int, float -> string
-    """
-    word = [make_syllable(elements, mu) for i in range(num_syllables)]
-    return "".join(word)
-    
-
-def make_vocab(elements, num_words, num_syllables, mu=0.3)->list:
-    """
-    This function spits out a list of strings, where each
-    element is generated using make_word, which will later be
-    printed out or sent to a file with linebreaks added.
-
-    dictionary, int, int -> [strings]
-    """
-    vocab = [make_word(elements, num_syllables) for i in range(num_words)]
-    return vocab
+    word = ''
+    for i in range(num_syllables):
+        word += make_syllable(phonology)
+    return word
 
 
 # Try it out!
-w, s, mu = args.w, args.s, args.mu
+@begin.start # Entry point when run from console
+def run(num_words=1, num_syllables=1, file='')->str:
+    output = ''
+    # Create the phonology, grabbing from file if specified
+    if len(file) > 0:
+        phonology = yaml.load(open(file, 'r'))
+    else:
+        phonology = { 'language': 'Hrau',
 
-words = make_vocab(elements, w, s, mu)
+                    'syllables': {
+                        'vals':   ['CV', 'CD', 'IAV', 'CVF', 'D', 'V', 'CDF', 
+                                    'IAD', 'CVOF', 'IADF', 'CDOF', 'IAVF', 
+                                    'IAVO', 'IADO', 'IAVOF', 'IAODOF'],
+                        'mu': 0.3},
 
-words_output = "\n".join(words)
+                    'elements': {
+                        'C': {  'vals': 
+                                ['k', 't', 'r', 'n', 's', 'h', 'l', 'f', 'm',
+                                 'y', 'j', 'p', 'w'],
+                                'mu': 0.3},
 
-print(words_output)
+                        'V': {  'vals': ['i', 'u', 'o', 'e', 'a'],
+                                'mu': 0.3},
+
+                        'D': {  'vals': ['ei', 'oi', 'ai', 'uo', 'ou', 'au'],
+                                'mu': 0.5},
+
+                        'I': {  'vals': ['k', 't', 's', 'n', 'h', 'f', 'p', 
+                                        'm', 'j'],
+                                'mu': 0.5},
+
+                        'A': {  'vals': ['y', 'r', 'w'],
+                                'mu': 0.3},
+
+                        'F': {  'vals': ['n', 's', 'r', 'm'],
+                                'mu': 0.5},
+
+                        'O': {  'vals': ['i', 'h', 'u'],
+                                'mu': 0.2}
+                    }
+                }
+    # Create the words!
+    for w in range(num_words):
+        word = make_word(phonology, num_syllables)
+        output += word
+        output += '\n'
+    return output
