@@ -5,16 +5,24 @@ a mathematical distribution, in this case Zipfian since that is common
 in natural language data.
 
 Inputs: 
-number of words to generate (int, mandatory)
-number of syllables per word (optional int, defaults to 1)
-mu value for Poisson distribution (optinal float, defaults to 0.3)
+- number of words to generate (integer, mandatory)
+- number of syllables per word (optional integer, defaults to 1)
+- filename of Yaml file (optional string, defaults to '' and renders Krau)
 
-Output: linebreak-separated list of generated words
+Output: 
+- linebreak-separated list of generated words
 
-TO DO: add third optional input for desired first letter of word
+TO DO: add another optional input for desired first letter of word.
+This would require checking the first letter against the phonology, so we'll
+need to include some exception handling.
 
-int, (int), (float) -> [strings]
+int, (int), (string) -> print(strings)
 """
+
+
+# Replaces starting point boilerplate with a decorator
+import begin
+
 
 # Distribution to use for weights
 from scipy.stats import poisson
@@ -22,7 +30,15 @@ from scipy.stats import poisson
 # Random choice function fnrom Numpy
 from numpy.random import choice
 
-# Standard module, a parser for command-line arguments
+# This will help make generating weights faster later
+from itertools import groupby
+
+
+# The input file will be in Yaml
+import yaml
+
+
+# Prase command line arguments
 import argparse
 
 args_parser = argparse.ArgumentParser(description='Generate random words.')
@@ -33,76 +49,124 @@ args_parser.add_argument('w', type=int, nargs='?', default=1,
 args_parser.add_argument('s', type=int, nargs='?', default=1,
     help='number of syllables per word')
 
-args_parser.add_argument('mu', type=float, nargs='?', default=0.3, 
-    help='mu value for the Poisson distribution, defaults to 0.3')
+args_parser.add_argument('file', type=float, nargs='?', default='', 
+    help='filename to read, defaults to empty string')
 
 args = args_parser.parse_args()
 
-"""
-PHONEMIC VARIABLES
 
-Later I will write a parser or domain-specific language that allows for
-a standard text input for all of this information. For now, these are
-defined at this scope and would be changed on a per-language basis.
 
-Here we define the sets of characters we are using to represent the phonemes
-in the language. The elements of the lists can be more than one character
-if the language has a finite set of permitted diphthongs, rhymes, etc. 
-Each array should be ordered from most frequent phoneme to least frequent. 
-This is becausevwe generate an equal-length array of floats as weights for 
-randomly selecting an element from each of these lists.
-"""
+# Get command line arguments for number of words and syllables per word
+w, s = args.w, args.s
 
-# Consonants permitted at syllable onset when unaccompanied
-consonants = ['k', 't', 'r', 'n', 's', 'h', 
-            'l', 'f', 'm', 'y', 'j', 'p', 'w']
+# Create the phonology. Grab the file argument if possible
+phonology = {}
 
-# Consonants permitted before accompaniments
-initials = ['k', 't', 's', 'n', 'h', 'f', 'p', 
-            'm', 'j']
+if len(args.file) > 0:
+    phonology = yaml.load(open(args.file, 'r'))
+else:
+    phonology = { 'language': 'Hrau',
 
-# These are the consonants allowed to form the second element in clusters
-accompaniments = ['y', 'r', 'w']
+                'syllables': {
+                    'vals':   ['CV', 'CD', 'IAV', 'CVF', 'D', 'V', 'CDF', 
+                                'IAD', 'CVOF', 'IADF', 'CDOF', 'IAVF', 'IAVO', 
+                                'IADO', 'IAVOF', 'IAODOF'],
+                    'mu': 0.3},
 
-# Vowels that occur as single syllable nuclei
-vowels = ['i', 'u', 'o', 'e', 'a']
+                'elements': {
+                    'C': {  'vals': 
+                            ['k', 't', 'r', 'n', 's', 'h', 'l', 'f', 'm',
+                             'y', 'j', 'p', 'w'],
+                            'mu': 0.3},
 
-# Diphthongs, which in this language cannot occur together with 
-# offglides or with ccompaniments
-diphthongs = ['ei', 'oi', 'ai', 'uo', 'ou', 'au']
+                    'V': {  'vals': ['i', 'u', 'o', 'e', 'a'],
+                            'mu': 0.3},
 
-# Consonants peritted at the ends of syllables
-finals = ['n', 's', 'r', 'm']
+                    'D': {  'vals': ['ei', 'oi', 'ai', 'uo', 'ou', 'au'],
+                            'mu': 0.5},
 
-# These are the permitted offglides from vowels: two semivowels and /h/
-# For clarity of orthography, /w/ and /y/ are written <u> and <i> here
-offglides = ['i', 'h', 'u']
+                    'I': {  'vals': ['k', 't', 's', 'n', 'h', 'f', 'p', 
+                                    'm', 'j'],
+                            'mu': 0.5},
 
-# Permitted syllable structures. These use one-letter abbreviations
-# of the names of the lists above.
-# Note this is also in descending order of frequency!
-syllables = ['CV', 'CD', 'IAV', 'CVF', 'D', 'V', 'CDF', 'IAD', 'CVOF', 
-            'IADF', 'CDOF', 'IAVF', 'IAVO', 'IADO', 'IAVOF', 'IAODOF']
+                    'A': {  'vals': ['y', 'r', 'w'],
+                            'mu': 0.3},
 
-# All of the above then gets put into a dictionary. We will be using
-elements = {'C': consonants,
-            'I': initials,
-            'A': accompaniments,
-            'V': vowels,
-            'D': diphthongs,
-            'F': finals,
-            'O': offglides,
-            'S': syllables
-           }
+                    'F': {  'vals': ['n', 's', 'r', 'm'],
+                            'mu': 0.5},
+
+                    'O': {  'vals': ['i', 'h', 'u'],
+                            'mu': 0.2}
+                }
+            }
+
 
 
 """
-Function declarations
-
-These basically just compose on each other.
+NEW FUNCTION DEFINITIONS
 """
 
-def choose_phoneme(phonemes, mu=0.3)->str:
+def poisson_weights(length, mu=0.3)->list:
+    """
+    Returns a list of weights according to a Poisson distribution with
+    the mu value for the distribution as an optional argument.
+
+    The length parameter is just an integer that will come from 
+    things like len(consonants)
+
+    int, (float) -> [floats]
+    """
+    rv = poisson(mu)
+    weights = [rv.pmf(i) for i in range(length)]
+    return weights
+
+
+def choose_poisson(strings, mu=0.3)->str:
+    """
+    Chooses an element from a list of strings using a Poisson distribution.
+    The Poisson distribution is from Scipy and choice is from Numpy.
+    """
+    weights = make_poisson_weights(len(strings), mu)
+    return choice(strings, 1, weights)[0]
+
+
+def make_syllable(phonology, mu=0.3)->str:
+    """
+    Builds a syllable according to a distribution of syllable structures
+    taking each character in the string as a label.
+    """
+    phono = phonology
+    syls = phono['syllables']['vals'] # Get list of syllable structures
+    syl_mu = phono['syllables']['mu'] # Get mu value for choosing structure
+
+    s_weights = poisson_weights(len(syls), syl_mu) # Make list of weights
+    syl_struct = choice(syls, 1, s_weights)[0] # Our chosen syllable structure
+
+    elements = phono['elements'] # Elements: C, V, etc.
+
+    # Create dictionary of weights indexed by unique members of elements
+    weights = {}
+    # Here we extract every unique element of the syllable structure string
+    unique = ''.join(k for k, g in groupby(sorted(syl_struct)))
+    # Go through those unique elements to create a weights dictionary
+    for u in unique:
+        l = len(elements[u]['vals'])
+        m = elements[u]['mu']
+        weights[u] = poisson_weights(l, m)
+
+    # Choose an element from each list of element vals according to the weights
+    syl_out = ''
+    for s in syl_struct:
+        syl_out += choice(elements[s], 1, weights[s])
+
+    return syl_out
+
+
+"""
+OLD FUNCTION DEFINITIONS
+"""
+
+def old_choose_phoneme(phonemes, mu=0.3)->str:
     """
     Choose random phonemes using a Poisson distribution as weights.
     Note that this is also used to choose syllable structures.
@@ -120,7 +184,7 @@ def choose_phoneme(phonemes, mu=0.3)->str:
     return choice(phonemes, 1, weights)[0]
 
 
-def make_syllable(elements, mu=0.3)->str:
+def old_make_syllable(elements, mu=0.3)->str:
     """
     Parse syllable structures and replace with random phonemes.
     This goes through a list of syllable structures derived from 
@@ -131,6 +195,9 @@ def make_syllable(elements, mu=0.3)->str:
     dictionary, float -> string
     """
     structure = list(choose_phoneme(elements['S']))
+
+    # Pull list of mu values
+
     output = ""
     for st in structure:
         output += choose_phoneme(elements[st], mu)
