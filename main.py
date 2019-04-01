@@ -76,17 +76,18 @@ def make_syllable(phonology, distro='zipf')->str:
     Builds a syllable according to a distribution of syllable structures
     taking each character in the string as a label.
     """
-    phono = phonology
-    syls = phono['syllables']['vals'] # Get list of syllable structures
-    syl_q = phono['syllables']['q'] # Get q value for choosing structure
-
-    # Make list of weights
-    if distro = 'poisson':
+    # Set which distribution we are using
+    if distro == 'poisson':
         weight_lifter = poisson_weights
     else:
         weight_lifter = zipf_weights
 
-    s_weights = weight_lifter(l, q)
+    phono = phonology
+    syls = phono['syllables']['vals'] # Get list of syllable structures
+    syl_q = phono['syllables']['q'] # Get q value for choosing structure
+    syl_len = len(syls)
+
+    s_weights = weight_lifter(syl_len, syl_q)
 
     syl_struct = choice(syls, 1, s_weights)[0] # Our chosen syllable structure
 
@@ -99,8 +100,8 @@ def make_syllable(phonology, distro='zipf')->str:
     # Go through those unique elements to create a weights dictionary
     for u in unique:
         l = len(elements[u]['vals'])
-        m = elements[u]['q']
-        weights[u] = weight_lifter(l, m)
+        q = elements[u]['q']
+        weights[u] = weight_lifter(l, q)
 
     # Choose an element from each list of element vals according to the weights
     syl_out = ''
@@ -127,40 +128,8 @@ def run(words='1', syllables='1', distribution='zipf', file='')->str:
     if len(file) > 0:
         phonology = yaml.load(open(file, 'r'))
     else:
-        phonology = { 'language': 'Hrau',
-
-                    'syllables': {
-                        'vals':   ['CV', 'CD', 'IAV', 'CVF', 'D', 'V', 'CDF', 
-                                    'IAD', 'CVOF', 'IADF', 'CDOF', 'IAVF', 
-                                    'IAVO', 'IADO', 'IAVOF', 'IAODOF'],
-                        'q': 0.3},
-
-                    'elements': {
-                        'C': {  'vals': 
-                                ['k', 't', 'r', 'n', 's', 'h', 'l', 'f', 'm',
-                                 'y', 'j', 'p', 'w'],
-                                'q': 0.3},
-
-                        'V': {  'vals': ['i', 'u', 'o', 'e', 'a'],
-                                'q': 0.3},
-
-                        'D': {  'vals': ['ei', 'oi', 'ai', 'uo', 'ou', 'au'],
-                                'q': 0.5},
-
-                        'I': {  'vals': ['k', 't', 's', 'n', 'h', 'f', 'p', 
-                                        'm', 'j'],
-                                'q': 0.5},
-
-                        'A': {  'vals': ['y', 'r', 'w'],
-                                'q': 0.3},
-
-                        'F': {  'vals': ['n', 's', 'r', 'm'],
-                                'q': 0.5},
-
-                        'O': {  'vals': ['i', 'h', 'u'],
-                                'q': 0.2}
-                    }
-                }
+        phonology = yaml.load(open('hrau.yml', 'r'))
+        
     # Create the words!
     for w in range(int(words)):
         word = make_word(phonology, int(syllables), distribution)

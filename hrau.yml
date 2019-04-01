@@ -1,0 +1,26 @@
+language: Hrau
+syllables: 
+  vals: [CV, CD, IAV, CVF, D, V, CDF, IAD, CVOF, IADF, IAVF, IAVO, IAVOF, IAVOF]
+  q: 0.72
+elements:
+  C: # consonants
+    vals: [k, t, r, n, s, h, l, f, m, y, j, p, w]
+    q: 0.7
+  V: # pure vowels
+    vals: [i, u, o, e, a]
+    q: 0.4
+  D: # diphthongs, more limited distribution
+    vals: [ei, oi, ai, uo, ou, au]
+    q: 0.4
+  F: # syllable finals
+    vals: [n, s, r, m]
+    q: 0.5
+  I: # initial cluster initial elements
+    vals: [k, t, s, n, h, f, p, m, j]
+    q: 0.9
+  A: # initial cluster accompaniments
+    vals: [r, s, l]
+    q: 0.5
+  O: # offglides
+    vals: [y, h, w]
+    q: 0.2
