@@ -1,7 +1,7 @@
 language: Hrim
 syllables: 
-  vals: [CV, IAV, V, CVF, VF, IAVF]
-  mu: 0.4
+  vals: [CV, V, IAV, CVF, VF, IAVF]
+  mu: 0.63
 elements:
   C: # consonants
     vals: [k, t, z, r, n, s, h, l, f, g, b]

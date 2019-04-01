@@ -24,8 +24,8 @@ int, (int), (string) -> print(strings)
 import begin
 
 
-# Distribution to use for weights
-from scipy.stats import poisson
+# Distributions to use for weights
+from scipy.stats import poisson, zipf
 
 # Random choice function fnrom Numpy
 from numpy.random import choice
@@ -55,6 +55,17 @@ def poisson_weights(length, mu=0.7)->list:
     rv = poisson(mu)
     weights = [rv.pmf(i) for i in range(length)]
     return weights
+
+
+def zipf_weights(length, shape=1.5)->list:
+    """
+    Alternative to the above using Zipf distribution.
+    Note that this returns an array where the first element is 0,
+    so we will be dropping that.
+
+    int, (float) -> [floats]
+    """
+    return [zipf.pmf(i, shape) for i in range(length)][1:]
 
 
 def make_syllable(phonology)->str:
