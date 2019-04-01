@@ -1,20 +1,20 @@
 language: Hrim
 syllables: 
   vals: [CV, V, IAV, CVF, VF, IAVF]
-  mu: 0.63
+  q: 0.63
 elements:
   C: # consonants
     vals: [k, t, z, r, n, s, h, l, f, g, b]
-    mu: 0.7
+    q: 0.7
   V: # vowels and diphthongs
     vals: [a, i, u, ay, uy, ay]
-    mu: 0.3
+    q: 0.3
   F: # syllable finals
     vals: [n, l, r, b, s]
-    mu: 0.5
+    q: 0.5
   I: # initial cluster initial elements
     vals: [k, t, p, h]
-    mu: 0.9
+    q: 0.9
   A: # initial cluster accompaniments
     vals: [r, s, l]
-    mu: 0.3
+    q: 0.3

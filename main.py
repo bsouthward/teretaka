@@ -42,42 +42,52 @@ import yaml
 NEW FUNCTION DEFINITIONS
 """
 
-def poisson_weights(length, mu=0.7)->list:
+def poisson_weights(length, q=0.7)->list:
     """
     Returns a list of weights according to a Poisson distribution with
-    the mu value for the distribution as an optional argument.
+    the q value for the distribution as an optional argument.
 
     The length parameter is just an integer that will come from 
     things like len(consonants)
 
     int, (float) -> [floats]
     """
-    rv = poisson(mu)
+    q = q # relevant vs Zipf
+    rv = poisson(q)
     weights = [rv.pmf(i) for i in range(length)]
     return weights
 
 
-def zipf_weights(length, shape=1.5)->list:
+def zipf_weights(length, q=0.7)->list:
     """
     Alternative to the above using Zipf distribution.
     Note that this returns an array where the first element is 0,
-    so we will be dropping that.
+    so we will be dropping that and adding to the index.
 
     int, (float) -> [floats]
     """
+    length += 1 # dropping first value later
+    shape = 1/q # scales inversely to Poisson
     return [zipf.pmf(i, shape) for i in range(length)][1:]
 
 
-def make_syllable(phonology)->str:
+def make_syllable(phonology, distro='zipf')->str:
     """
     Builds a syllable according to a distribution of syllable structures
     taking each character in the string as a label.
     """
     phono = phonology
     syls = phono['syllables']['vals'] # Get list of syllable structures
-    syl_mu = phono['syllables']['mu'] # Get mu value for choosing structure
+    syl_q = phono['syllables']['q'] # Get q value for choosing structure
 
-    s_weights = poisson_weights(len(syls), syl_mu) # Make list of weights
+    # Make list of weights
+    if distro = 'poisson':
+        weight_lifter = poisson_weights
+    else:
+        weight_lifter = zipf_weights
+
+    s_weights = weight_lifter(l, q)
+
     syl_struct = choice(syls, 1, s_weights)[0] # Our chosen syllable structure
 
     elements = phono['elements'] # Elements: C, V, etc.
@@ -89,8 +99,8 @@ def make_syllable(phonology)->str:
     # Go through those unique elements to create a weights dictionary
     for u in unique:
         l = len(elements[u]['vals'])
-        m = elements[u]['mu']
-        weights[u] = poisson_weights(l, m)
+        m = elements[u]['q']
+        weights[u] = weight_lifter(l, m)
 
     # Choose an element from each list of element vals according to the weights
     syl_out = ''
@@ -99,19 +109,19 @@ def make_syllable(phonology)->str:
     return syl_out
 
 
-def make_word(phonology, num_syllables)->str:
+def make_word(phonology, num_syllables, distro='zipf')->str:
     """
     Use the syllable-building function above to construct words
     """
     word = ''
     for i in range(num_syllables):
-        word += make_syllable(phonology)
+        word += make_syllable(phonology, distro)
     return word
 
 
 # Try it out!
 @begin.start # Entry point when run from console
-def run(words='1', syllables='1', file='')->str:
+def run(words='1', syllables='1', distribution='zipf', file='')->str:
     output = ''
     # Create the phonology, grabbing from file if specified
     if len(file) > 0:
@@ -123,37 +133,37 @@ def run(words='1', syllables='1', file='')->str:
                         'vals':   ['CV', 'CD', 'IAV', 'CVF', 'D', 'V', 'CDF', 
                                     'IAD', 'CVOF', 'IADF', 'CDOF', 'IAVF', 
                                     'IAVO', 'IADO', 'IAVOF', 'IAODOF'],
-                        'mu': 0.3},
+                        'q': 0.3},
 
                     'elements': {
                         'C': {  'vals': 
                                 ['k', 't', 'r', 'n', 's', 'h', 'l', 'f', 'm',
                                  'y', 'j', 'p', 'w'],
-                                'mu': 0.3},
+                                'q': 0.3},
 
                         'V': {  'vals': ['i', 'u', 'o', 'e', 'a'],
-                                'mu': 0.3},
+                                'q': 0.3},
 
                         'D': {  'vals': ['ei', 'oi', 'ai', 'uo', 'ou', 'au'],
-                                'mu': 0.5},
+                                'q': 0.5},
 
                         'I': {  'vals': ['k', 't', 's', 'n', 'h', 'f', 'p', 
                                         'm', 'j'],
-                                'mu': 0.5},
+                                'q': 0.5},
 
                         'A': {  'vals': ['y', 'r', 'w'],
-                                'mu': 0.3},
+                                'q': 0.3},
 
                         'F': {  'vals': ['n', 's', 'r', 'm'],
-                                'mu': 0.5},
+                                'q': 0.5},
 
                         'O': {  'vals': ['i', 'h', 'u'],
-                                'mu': 0.2}
+                                'q': 0.2}
                     }
                 }
     # Create the words!
     for w in range(int(words)):
-        word = make_word(phonology, int(syllables))
+        word = make_word(phonology, int(syllables), distribution)
         output += word
         if w < int(words) - 1:
             output += '\n'
