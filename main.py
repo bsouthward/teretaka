@@ -42,7 +42,7 @@ import yaml
 NEW FUNCTION DEFINITIONS
 """
 
-def poisson_weights(length, mu=0.3)->list:
+def poisson_weights(length, mu=0.7)->list:
     """
     Returns a list of weights according to a Poisson distribution with
     the mu value for the distribution as an optional argument.
@@ -55,15 +55,6 @@ def poisson_weights(length, mu=0.3)->list:
     rv = poisson(mu)
     weights = [rv.pmf(i) for i in range(length)]
     return weights
-
-
-def choose_poisson(strings, mu=0.3)->str:
-    """
-    Chooses an element from a list of strings using a Poisson distribution.
-    The Poisson distribution is from Scipy and choice is from Numpy.
-    """
-    weights = make_poisson_weights(len(strings), mu)
-    return choice(strings, 1, weights)[0]
 
 
 def make_syllable(phonology)->str:
@@ -93,7 +84,7 @@ def make_syllable(phonology)->str:
     # Choose an element from each list of element vals according to the weights
     syl_out = ''
     for s in syl_struct:
-        syl_out += choice(elements[s], 1, weights[s])
+        syl_out += list(choice(elements[s]['vals'], 1, weights[s]))[0]
     return syl_out
 
 
@@ -109,7 +100,7 @@ def make_word(phonology, num_syllables)->str:
 
 # Try it out!
 @begin.start # Entry point when run from console
-def run(num_words=1, num_syllables=1, file='')->str:
+def run(words='1', syllables='1', file='')->str:
     output = ''
     # Create the phonology, grabbing from file if specified
     if len(file) > 0:
@@ -150,8 +141,11 @@ def run(num_words=1, num_syllables=1, file='')->str:
                     }
                 }
     # Create the words!
-    for w in range(num_words):
-        word = make_word(phonology, num_syllables)
+    for w in range(int(words)):
+        word = make_word(phonology, int(syllables))
         output += word
-        output += '\n'
-    return output
+        if w < int(words) - 1:
+            output += '\n'
+    outstring = phonology['language'] + ' language: ' + words + ' words'
+    print(outstring)
+    print(output)
