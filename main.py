@@ -7,16 +7,25 @@ in natural language data.
 Inputs: 
 - number of words to generate (integer, mandatory)
 - number of syllables per word (optional integer, defaults to 1)
-- filename of Yaml file (optional string, defaults to '' and renders Krau)
+- filename of Yaml file (optional string, defaults to '' and renders Hrau)
 
 Output: 
 - linebreak-separated list of generated words
+- int, (int), (string) -> print(strings)
 
-TO DO: add another optional input for desired first letter of word.
+TO DO: 
+
+1. Add another optional input for desired first letter of word.
 This would require checking the first letter against the phonology, so we'll
 need to include some exception handling.
 
-int, (int), (string) -> print(strings)
+2. Change the application behavior so that it does this:
+    1) Generate a list of word candidates like before
+    2) Present the candidates interactively, to be marked Y or N
+    3) Dump the candidate words marked Y into a list until there are plenty
+    4) Use Markov chains to generate new words based on the good candidates
+
+3. Build a UI for this all to work visually.
 """
 
 
@@ -66,21 +75,23 @@ def zipf_weights(length, q=0.7)->list:
 
     int, (float) -> [floats]
     """
-    length += 1 # dropping first value later
-    shape = 1/q # scales inversely to Poisson
+    length += 1 # dropping first value later with Zipf
+    if q == 0:
+        shape = 1
+    else:
+        shape = 1/q # scales inversely to Poisson
     return [zipf.pmf(i, shape) for i in range(length)][1:]
 
 
-def add_weights_to_phonology(phonology, distro='zipf'):
+def add_weights_to_phonology(phonology, distro='zipf')->dict:
     """
     This consumes a dictionary drawn from the Yaml specifying the
     langauge's phonology, and outputs a dictionary with added weights.
     """
-    phono = phonology
 
-    syls = phono['syllables']['vals'] # Syllable struture values
-    syl_q = phono['syllables']['q']
-    elements = phono['elements']
+    syls = phonology['syllables']['vals'] # Syllable struture values
+    syl_q = phonology['syllables']['q']
+    elements = phonology['elements']
 
     if distro == 'poisson':
         weight_lifter = poisson_weights
@@ -88,7 +99,7 @@ def add_weights_to_phonology(phonology, distro='zipf'):
         weight_lifter = zipf_weights
 
     # Add weights to dictionary for the syllable structures
-    phono['syllables']['weights'] = weight_lifter(len(syls), syl_q)
+    phonology['syllables']['weights'] = weight_lifter(len(syls), syl_q)
 
     # Grab total set of unique characters in the syllable structures
     unique = ''.join(syls)
@@ -102,7 +113,7 @@ def add_weights_to_phonology(phonology, distro='zipf'):
         elements[u]['weights'] = weights
 
     phono['elements'] = elements
-    return phono
+    return phonology
 
 def make_syllable(phonology)->str:
     """
@@ -131,7 +142,9 @@ def make_syllable(phonology)->str:
 
 def make_word(phonology, num_syllables, distro='zipf')->str:
     """
-    Use the syllable-building function above to construct words
+    Use the syllable-building function above to construct words.
+
+    dictionary, int, string -> string
     """
     # Start by adding the weights to the phonology we've received
     phono = add_weights_to_phonology(phonology, distro)
@@ -144,6 +157,7 @@ def make_word(phonology, num_syllables, distro='zipf')->str:
 
 
 # Try it out!
+
 @begin.start # Entry point when run from console
 def run(words='1', syllables='1', distribution='zipf', file='')->str:
     output = ''
