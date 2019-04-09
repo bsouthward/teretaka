@@ -1,0 +1,5 @@
+# Ignore the folder that has some academic papers in it
+papers/
+
+# because Mac
+*.DS_Store
