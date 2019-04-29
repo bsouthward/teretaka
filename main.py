@@ -1,8 +1,8 @@
 """
 This is a tool that can take in lists of consonants and vowels (or other
 sets of symbols) and randomly generate words based on them according to
-a mathematical distribution, in this case Zipfian since that is common
-in natural language data.
+a statistical distribution. It will be expanded to add a way to train
+a Markov model.
 
 Inputs: 
 - number of words to generate (integer, mandatory)
@@ -11,7 +11,6 @@ Inputs:
 
 Output: 
 - linebreak-separated list of generated words
-- int, (int), (string) -> print(strings)
 
 TO DO: 
 
@@ -28,28 +27,33 @@ need to include some exception handling.
 3. Build a UI for this all to work visually.
 """
 
+__author__ = "Brien Southward"
+__copyright__ = "Copyright 2019, Brien Southward"
+__maintainer__ = "Brien Southward"
+__email__ = "brien.southward@gmail.com"
+
+
 
 # Replaces starting point boilerplate with a decorator
 import begin
 
-
 # Distributions to use for weights
 from scipy.stats import poisson, zipf
 
-# Random choice function fnrom Numpy
-from numpy.random import choice
+# Data stuff
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Flatten
+form keras.layers import Conv2D, MaxPooling2D
+import numpy as np
 
 # This will help make generating weights faster later
-from itertools import groupby
-
+import itertools as itr
 
 # The input file will be in Yaml
 import yaml
 
 
-"""
-NEW FUNCTION DEFINITIONS
-"""
 
 def poisson_weights(length, q=0.7)->list:
     """
@@ -61,7 +65,6 @@ def poisson_weights(length, q=0.7)->list:
 
     int, (float) -> [floats]
     """
-    q = q # relevant vs Zipf
     rv = poisson(q)
     weights = [rv.pmf(i) for i in range(length)]
     return weights
@@ -75,7 +78,7 @@ def zipf_weights(length, q=0.7)->list:
 
     int, (float) -> [floats]
     """
-    length += 1 # dropping first value later with Zipf
+    length += 1 # later we drop the first value. Zipf results start with 0
     if q == 0:
         shape = 1
     else:
@@ -88,22 +91,21 @@ def add_weights_to_phonology(phonology, distro='zipf')->dict:
     This consumes a dictionary drawn from the Yaml specifying the
     langauge's phonology, and outputs a dictionary with added weights.
     """
-
-    syls = phonology['syllables']['vals'] # Syllable struture values
-    syl_q = phonology['syllables']['q']
+    syls = phonology['syllables']['vals'] # Syllable struture possibilities
+    syl_q = phonology['syllables']['q'] # q values for weights
     elements = phonology['elements']
 
     if distro == 'poisson':
         weight_lifter = poisson_weights
     else:
-        weight_lifter = zipf_weights
+        weight_lifter = zipf_weights # Zipf is usually more natural
 
     # Add weights to dictionary for the syllable structures
     phonology['syllables']['weights'] = weight_lifter(len(syls), syl_q)
 
-    # Grab total set of unique characters in the syllable structures
+    # Grab string containing only unique characters from the structures
     unique = ''.join(syls)
-    unique = ''.join(k for k, g in groupby(sorted(unique)))
+    unique = ''.join(k for k, g in itr.groupby(sorted(unique)))
 
     # Add weights for each unique element appearing in the syl structs
     for u in unique:
@@ -124,8 +126,8 @@ def make_syllable(phonology)->str:
     syls = phonology['syllables']['vals'] 
     syl_weights = phonology['syllables']['weights']
 
-    # Choose a syllable structure
-    syl_struct = choice(syls, 1, syl_weights)[0]
+    # Choose a syllable structure according to the weights
+    syl_struct = np.choice(syls, 1, syl_weights)[0]
 
     # Elements: C, V, etc.
     elements = phonology['elements'] 
@@ -135,7 +137,7 @@ def make_syllable(phonology)->str:
     for s in syl_struct:
         vs = elements[s]['vals']
         ws = elements[s]['weights']
-        phone = choice(vs, 1, ws)[0]
+        phone = np.choice(vs, 1, ws)[0]
         syl_out += phone
     return syl_out
 
