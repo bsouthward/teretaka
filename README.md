@@ -54,17 +54,16 @@ $ python3 main.py --words 10 --syllables 2 --file proto-korokso.yaml
 This will output 10 words into the terminal that are 2 syllables each. For example:
 
 ```
-Proto-Korokso language: 10 words of 2 syllable(s) each.
-CirksSFh
-SHrkskskCeuS
-SQskrtrekSk
-SiykroH
-kCtSotCeo
-kQCtSH
-kSkruirtCkSR
-krtHkskHt
-krtukStH
-trtrosRC
+kStSokCtsuHh
+kruekCtCX
+kskikstSx
+tCeutCke
+tSkRxuR
+tStrikstok
+trkrekrR
+trtHtSStSk
+trtuskX
+yXSkxH
 ```
 
 Look weird? That's because this language is supposed to have tons of consonants in a row! 
